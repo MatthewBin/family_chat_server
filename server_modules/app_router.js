@@ -11,7 +11,7 @@ var router = require('express').Router();
 // 添加一个模块
 
 var hello = require('./hello');
-
+var user =require('./user');
 //-------------------------------------------------
 
 
@@ -19,6 +19,8 @@ var hello = require('./hello');
 // 一个 API 路由下的 hello 接口，访问 /api/hello
 
 router.get('/hello', hello.hello);
+router.post('/connect', hello.hello);
+router.post('/user/check_id_card', user.check_id_card);
 
 //-------------------------------------------------
 

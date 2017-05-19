@@ -11,225 +11,87 @@ var logs = require('./logs');
 
 var user = {};
 
-//用户名密码登陆
-user.login = function (req, res) {
-    var username = req.body.username;
-    var password = req.body.pwd;
-    var from = req.body.from;
-    var is_debug = req.body.is_debug;
-    var origin = req.body.origin;
-    var ip = req.headers["x-real-ip"];
+// 检查身份证合法性
+user.check_id_card = function (req,res) {
+    var id_code = req.body.id_code;
 
-    if (!username || !password || !from) {
-        res.send(base.errors.param_null);
-        return;
-    }
-    //当前只支持web和xg登录
-    if (from != "web" && from != "xg" && from != "app") {
-        res.send(base.errors.param_type_err);
-        return;
-    }
-
-    mysql.query("select id,password from user where username=?", [username]).then(function (result) {
-        if (result === null || result.length === 0) {
-            res.send(base.errors.not_found_user);
-            return;
-        }
-        var user_id = result[0].id;
-        var md5Pwd = base.md5Pwd(password);
-        if (result[0].password != md5Pwd) {
-            res.send(base.errors.pwd_err);
-            return;
-        }
-        //设置token，返回结果
-        var setToken = function (from) {
-            //获取token
-            var token = base.createToken(user_id);
-            var sql = "UPDATE user SET token_web=? WHERE id=?";
-            if(from == 'app'){
-                sql = "UPDATE user SET token_app=? WHERE id=?";
-            }
-            //更新数据库
-            mysql.query(sql, [token, user_id]).then(function (result) {
-                if(from != 'app'){
-                    res.cookie('dscj_id', token, {
-                        domain: '.laoshi123.com',
-                        expires: new Date(moment().add(1, 'months'))
-                    });
-                }
-
-                if (is_debug || from == "app") {
-                    res.send({res_code: 1, msg: "登陆成功", token: token});
-                } else {
-                    res.send({res_code: 1, msg: "登陆成功"});
-                }
-            });
-
-            //记录事件日志
-            base.get_baidu_position_by_ip(ip).then(function (position) {
-                position = unescape(position.replace(/\\u/g, '%u'));
-                try {
-                    position = JSON.parse(position);
-                    var province = position.content.address_detail.province;
-                    var city = position.content.address_detail.city;
-                    base.add_event_log(user_id, ip, JSON.stringify(position), province, city, 2, "", origin);
-                } catch (e) {
-                    base.add_event_log(user_id, ip, e.message, "", "", 2, "", origin);
-                }
-            });
-        };
-        switch (from) {
-            case "web":
-            case "app":
-                setToken(from);
-                break;
-            case "xg":
-                role.getUserRoleFunc(user_id).then(function (role_id_arr) {
-                    if (role_id_arr && (role_id_arr.indexOf(1) >= 0 ||
-                        role_id_arr.indexOf(7) >= 0)) {
-                        setToken();
-                    } else {
-                        res.send(base.errors.norole);
-                    }
-                });
-                break;
-            default:
-                res.send(base.errors.param_type_err);
-        }
-
+    base.check_id_card(id_code).then(function (result) {
+       res.send(result);
     });
 };
 
-//用户注册
+// 用户注册
 user.regist = function (req, res) {
-    var phone = req.body.phone;
+    var username = req.body.username;
     var pwd = req.body.pwd;
-    var smsCode = req.body.sms_code;
-    var origin = req.body.origin;
-    var ip = req.headers["x-real-ip"];
+    var email = req.body.email;
+    var code = req.body.code;
 
-    if (!phone || !smsCode || !pwd | !origin) {
+    if (!username || !pwd || !email) {
         res.send(base.errors.param_null);
         return;
     }
 
-    phone = phone.replace(/ /g, "");
+    if (code != "Matthew") {
+        res.send(base.errors.cannot);
+        return;
+    }
 
-    mysql.query("select id from user where username=?", [phone]).then(function (result) {
-        if (result.length > 0) {
+    var sql = "SELECT * FROM user WHERE user_name = ? ";
+    mysql.query(sql, [username]).then(function (results) {
+        if (results.length > 0) {
             res.send(base.errors.has_user);
             return;
         }
 
-        mysql.query("select * from sms where phone=?", [phone]).then(function (result) {
-            if (result === null || result.length === 0) {
-                res.send(base.errors.not_found_sms);
-                return;
-            }
-
-            if (smsCode != result[0].sms_code) {
-                res.send(base.errors.sms_err);
-                return;
-            }
-
-            var time = "30";
-            if ((Math.floor((moment() - result[0].update_time) / (1000 * 60))) >= time) {
-                res.send(base.errors.sms_ex);
-                return;
-            }
-
-            var md5Pwd = base.md5Pwd(pwd);
-
-            var sql = "INSERT INTO user(username,password) VALUES(?,?)";
-            mysql.query(sql, [phone, md5Pwd]).then(function (result) {
-                var user_id = result.insertId;
-                //添加个人信息
-                var nickname = phone.substr(0, 3) + '****' + phone.substr(-4);
-                var sql = "INSERT INTO user_info(user_id,nickname,phone) VALUES(?,?,?)";
-                mysql.query(sql, [user_id, nickname, phone]).then(function (result) {
-
-                    //获取token 自动登录
-                    //var token = base.createToken(user_id);
-                    //var sql = "UPDATE user SET token_web=? WHERE id=?";
-                    //mysql.query(sql, [token, user_id]).then(function (result) {
-                    //    res.cookie('dscj_id', token, {
-                    //        domain: '.laoshi123.com',
-                    //        expires: new Date(moment().add(1, 'months'))
-                    //    });
-                    //    res.send({res_code: 1, msg: "注册成功"});
-                    //});
-                    res.send({res_code: 1, msg: "注册成功"});
-
-
-                    //记录事件日志
-                    base.get_baidu_position_by_ip(ip).then(function (position) {
-                        position = unescape(position.replace(/\\u/g, '%u'));
-                        try {
-                            position = JSON.parse(position);
-                            var province = position.content.address_detail.province;
-                            var city = position.content.address_detail.city;
-                            base.add_event_log(user_id, ip, JSON.stringify(position), province, city, 1, "", origin);
-                        } catch (e) {
-                            base.add_event_log(user_id, ip, e.message, "", "", 1, "", origin);
-                        }
-                    });
-                });
-            });
+        var md5Pwd = base.md5Pwd(pwd);
+        var sql = "INSERT INTO user (user_name,user_pwd,email,state) " +
+            "VALUES (?,?,?,?,?) ";
+        mysql.query(sql, [username, md5Pwd, email, 1]).then(function (result) {
+            res.send({res_code: 1, msg: "注册成功"});
         });
     });
 };
 
-//忘记密码
-user.forgot_pwd = function (req, res) {
-    var phone = req.body.phone;
-    var smsCode = req.body.sms_code;
-    var new_pwd = req.body.new_pwd;
+// 用户登录
+user.login = function (req, res) {
+    var username = req.body.username;
+    var pwd = req.body.pwd;
+    var client = req.body.client;
 
-    if (!phone || !smsCode || !new_pwd) {
+    if (!username || !pwd) {
         res.send(base.errors.param_null);
-        return;
     }
-
-    mysql.query("select * from sms where phone=?", [phone]).then(function (result) {
-        if (result === null || result.length === 0) {
-            res.send(base.errors.not_found_sms);
+    var sql = "SELECT id,user_pwd from user WHERE user_name = ? ";
+    mysql.query(sql, [username]).then(function (results) {
+        if (results === null || results.length == 0) {
+            res.send(base.errors.not_found_user);
             return;
         }
-
-        if (smsCode != result[0].sms_code) {
-            res.send(base.errors.sms_err);
+        var userid = results[0].id;
+        var md5Pwd = base.md5Pwd(pwd);
+        if (md5Pwd != results[0].user_pwd) {
+            res.send(base.errors.pwd_err);
             return;
         }
-
-        var time = "30";
-        if ((Math.floor((moment() - result[0].update_time) / (1000 * 60))) >= time) {
-            res.send(base.errors.sms_ex);
-            return;
-        }
-
-        mysql.query("SELECT user_id FROM user_info WHERE phone=?", [phone]).then(function (result) {
-            if (result.length == 0) {
-                res.send(base.errors.not_found_user);
-                return;
-            }
-            var userid = result[0].user_id;
-
-            //修改密码
-            var md5Pwd = base.md5Pwd(new_pwd);
-            var sql = "UPDATE user SET password=? WHERE id=?";
-            mysql.query(sql, [md5Pwd, userid]).then(function (result) {
-                res.send({res_code: 1, msg: "修改成功"});
+        var token = base.createToken(userid);
+        if (client == 1) {
+            var sql = "UPDATE user SET token_client = ? WHERE id = ? ";
+            mysql.query(sql, [token, userid]).then(function (result) {
+                res.send({res_code: 1, msg: token});
             });
-        });
-    });
-};
+        } else {
+            var sql = "UPDATE user SET token_web = ? WHERE id = ? ";
+            mysql.query(sql, [token, userid]).then(function (result) {
+                res.cookie('family_id', token, {
+                    // domain: '.laoshi123.com',
+                    expires: new Date(moment().add(1, 'months'))
+                });
+                res.send({res_code: 1, msg: "登陆成功"});
+            });
+        }
 
-//登出
-user.logout = function (req, res) {
-    res.clearCookie('dscj_id', {
-        domain: '.laoshi123.com'
     });
-    res.send({res_code: 1, msg: "登出成功"});
 };
 
 //获取用户信息
@@ -240,170 +102,208 @@ user.user_info = function (req, res) {
             case 1:
                 var userid = result.msg.iss;
                 user.getUserInfoFunc(userid).then(function (user_info) {
-                    role.getUserRoleFunc(userid).then(function (role_arr) {
-                        user_info.role_arr = role_arr;
-                        res.send({res_code: 1, msg: user_info});
+                    res.send({res_code: 1, msg: user_info});
+                });
+                break;
+            default:
+                res.send(result);
+                break;
+        }
+    });
+};
+
+// 找回密码 && 重新发送验证码
+user.forgot_pwd = function (req, res) {
+    var username = req.body.username;
+    var email = req.body.email;
+    if (!username || !email) {
+        res.send(base.errors.param_null);
+        return;
+    }
+    var sql = "SELECT * FROM user WHERE user_name = ? AND email = ? ";
+    mysql.query(sql, [username, email]).then(function (results) {
+        if (results.length == 0) {
+            res.send(base.errors.cannot);
+            return;
+        }
+        var userData = results[0];
+        var sql = "SELECT sms_code,update_time FROM user_sms " +
+            "WHERE user_id=? ";
+        mysql.query(sql, [userData.id]).then(function (results) {
+            if (results.length == 0) {
+                var sms_code = base.getRandomCode(100000, 999999);
+                base.send_mail(email, "【FamilyStorage】密码找回", "您本次的验证码为：" + sms_code + ",30分钟内有效!").then(function (sendMsg) {
+                    console.log(sendMsg)
+                    if (!sendMsg) {
+                        res.send(base.errors.cannot);
+                        return;
+                    }
+                    var sql = "INSERT INTO user_sms (user_id,sms_code) " +
+                        "VALUES (?,?) ";
+                    mysql.query(sql, [userData.id, sms_code]).then(function (result) {
+                        res.send({res_code: 1, msg: sendMsg});
+                    });
+                });
+            } else {
+                var time = 30;
+                //剩余时间=默认时间-时间差[分钟]
+                var tempTime = time - (Math.floor((moment() - results[0].update_time) / (1000 * 60)));
+                if (tempTime > 0) {
+                    var sms_code = results[0].sms_code;
+                    base.send_mail(email, "【FamilyStorage】密码找回", "您本次的验证码为：" + sms_code + ",30分钟内有效!").then(function (result) {
+                        if (!result) {
+                            res.send(base.errors.cannot);
+                            return;
+                        }
+                        res.send({res_code: 1, msg: "发送成功"});
+                    });
+                    res.send({res_code: 1, msg: "发送成功"});
+                } else {
+                    //更新users_sms表
+                    var sms_code = base.getRandomCode(100000, 999999);
+                    base.send_mail(email, "【FamilyStorage】密码找回", "您本次的验证码为：" + sms_code + ",30分钟内有效!").then(function (result) {
+                        if (!result) {
+                            res.send(base.errors.cannot);
+                            return;
+                        }
+                        var sql = "UPDATE user_sms SET sms_code =? WHERE user_id = ?";
+                        mysql.query(sql, [results[0].id, sms_code, userData.id]).then(function (result) {
+                            res.send({res_code: 1, msg: "发送成功"});
+                        });
+                    });
+                }
+            }
+        });
+    });
+};
+
+// 重新设置密码
+user.reset_pwd = function (req, res) {
+    var username = req.body.username;
+    var sms_code = req.body.sms_code;
+    var pwd = req.body.pwd;
+
+    if (!username || !sms_code || !pwd) {
+        res.send(base.errors.param_null);
+        return;
+    }
+
+    var sql = "SELECT id userid FROM user WHERE user_name = ? ";
+    mysql.query(sql, [username]).then(function (results) {
+        if (results === null || results.length == 0) {
+            res.send(base.errors.not_found_user);
+            return;
+        }
+        var userData = results[0];
+        var sql = "SELECT sms_code,state,update_time from user_sms WHERE user_id = ? ";
+        mysql.query(sql, [userData.userid]).then(function (results) {
+            if (results === null || results.length == 0) {
+                res.send(base.errors.not_found_sms);
+                return;
+            }
+            if (results[0].state == 1) {
+                res.send(base.errors.cannot);
+                return;
+            }
+
+            var time = 30;
+            //剩余时间=默认时间-时间差[分钟]
+            var tempTime = time - (Math.floor((moment() - results[0].update_time) / (1000 * 60)));
+
+            if (tempTime > 0) {
+                if (results[0].sms_code != sms_code) {
+                    res.send(base.errors.sms_err);
+                    return;
+                }
+                var md5Pwd = base.md5Pwd(pwd);
+                var sql = "UPDATE user SET user_pwd = ? WHERE id = ? ";
+                mysql.query(sql, [md5Pwd, userData.userid]).then(function (result) {
+                    var sql = "UPDATE user_sms SET state = 1 WHERE user_id = ? ";
+                    mysql.query(sql, [userData.userid]).then(function (result) {
+                        res.send({res_code: 1, msg: "密码重置成功!"});
+                    });
+                });
+            } else {
+                res.send(base.errors.sms_ex);
+            }
+        });
+    });
+};
+
+// 修改昵称
+user.set_info = function (req, res) {
+    var token = base.get_token(req);
+    var nickname = req.body.nickname;
+    var head_img = req.body.head_img;
+    var description = req.body.description;
+
+    var sql = "UPDATE user SET ";
+
+    if(nickname)
+
+    if(!nickname || nickname == ""){
+        res.send(base.errors.nickname_cannot_null);
+        return;
+    }
+
+    base.checkToken(token).then(function (result) {
+        switch (result.res_code) {
+            case 1:
+                var userid = result.msg.iss;
+                var sql = "SELECT * FROM user WHERE id=? ";
+                mysql.query(sql, [userid]).then(function (results) {
+                    if (results.length == 0) {
+                        res.send(base.errors.not_found_user);
+                        return;
+                    }
+                    var sql = "UPDATE user SET nickname = ? WHERE id = ? ";
+                    mysql.query(sql, [nickname, userid]).then(function (result) {
+                        res.send({res_code: 1, msg: "昵称修改成功"});
                     });
                 });
                 break;
             default:
-                res.send(result);
+                result.send(result)
                 break;
         }
     });
 };
 
-
-//设置昵称
-user.set_nickname = function (req, res) {
+// 修改密码
+user.set_pwd = function (req, res) {
     var token = base.get_token(req);
-    var nickname = req.body.nickname;
-
-    if (!nickname) {
+    var old_pwd = req.body.old_pwd;
+    var new_pwd = req.body.new_pwd;
+    if (!old_pwd || !new_pwd) {
         res.send(base.errors.param_null);
         return;
     }
-
-    nickname = nickname.replace(/\s/g, "");
-
-    //过滤
-
 
     base.checkToken(token).then(function (result) {
         switch (result.res_code) {
             case 1:
                 var userid = result.msg.iss;
-                var sql = "SELECT user_id FROM user_info WHERE nickname=?";
-                mysql.query(sql, [nickname]).then(function (result) {
-                    if (result.length == 0) {
-                        var sql = "UPDATE user_info SET nickname=? WHERE user_id=?";
-                        mysql.query(sql, [nickname, userid]).then(function (result) {
-                            res.send({res_code: 1, msg: "修改成功"});
-                        });
-                    } else {
-                        if (userid == result[0].user_id) {
-                            res.send({res_code: 1, msg: "修改成功"});
-                        } else {
-                            res.send(base.errors.has_nickname);
-                        }
+                var sql = "SELECT * FROM user WHERE id=? ";
+                mysql.query(sql, [userid]).then(function (results) {
+                    if (results.length == 0) {
+                        res.send(base.errors.not_found_user);
+                        return;
                     }
+                    var userData = results[0];
+                    var oldMd5Pwd = base.md5Pwd(old_pwd);
+                    if (oldMd5Pwd != userData.user_pwd) {
+                        res.send(base.errors.pwd_err);
+                        return;
+                    }
+                    var newMd5Pwd = base.md5Pwd(new_pwd);
+                    var sql = "UPDATE user SET user_pwd = ? WHERE id = ? ";
+                    mysql.query(sql, [newMd5Pwd, userid]).then(function (result) {
+                        res.send({res_code: 1, msg: "密码修改成功"});
+                    });
                 });
                 break;
             default:
-                res.send(result);
-                break;
-        }
-    });
-};
-
-//设置简介
-user.set_desc = function (req, res) {
-    var token = base.get_token(req);
-    var description = req.body.description;
-
-    if (!description) {
-        res.send(base.errors.param_null);
-        return;
-    }
-
-    base.checkToken(token).then(function (result) {
-        switch (result.res_code) {
-            case 1:
-                var userid = result.msg.iss;
-                var sql = "UPDATE user_info SET description=? WHERE user_id=?";
-                mysql.query(sql, [description, userid]).then(function (result) {
-                    res.send({res_code: 1, msg: "修改成功"});
-                });
-                break;
-            default:
-                res.send(result);
-                break;
-        }
-    });
-};
-
-//设置头像地址
-user.set_head_img_url = function (req, res) {
-    var token = base.get_token(req);
-    var img_url = req.body.img_url;
-
-    if (!img_url) {
-        res.send(base.errors.param_null);
-        return;
-    }
-
-    base.checkToken(token).then(function (result) {
-        switch (result.res_code) {
-            case 1:
-                var userid = result.msg.iss;
-                var sql = "UPDATE user_info SET head_img_url=? WHERE user_id=?";
-                mysql.query(sql, [img_url, userid]).then(function (result) {
-                    res.send({res_code: 1, msg: "修改成功"});
-                });
-                break;
-            default:
-                res.send(result);
-                break;
-        }
-    });
-};
-
-
-//设置用户信息
-user.set_info = function (req, res) {
-    var token = base.get_token(req);
-    var img_url = req.body.img_url;
-    var nickname = req.body.nickname;
-    var description = req.body.description;
-    var sex = req.body.sex;
-    var city_id = req.body.city_id;
-    var birthday = req.body.birthday;
-
-    var child_sql = '';
-    var param_arr=[];
-
-    if(img_url){
-        child_sql+="head_img_url=?,";
-        param_arr.push(img_url)
-    }
-    if(description){
-        child_sql+="description=?,";
-        param_arr.push(description)
-    }
-    if(city_id){
-        child_sql+="city_id=?,";
-        param_arr.push(city_id)
-    }
-    if(birthday){
-        child_sql+="birthday=?,";
-        param_arr.push(birthday)
-    }
-    if (sex == 0 || sex ==1) {
-        child_sql+="sex=?,";
-        param_arr.push(sex)
-    }
-
-
-
-    if(nickname == undefined || nickname == null || nickname.trim() == ''){
-        res.send(base.errors.nickname_null);
-        return;
-    }
-
-    base.checkToken(token).then(function (result) {
-        switch (result.res_code) {
-            case 1:
-                var userid = result.msg.iss;
-                child_sql ="UPDATE user_info SET " + child_sql+"nickname = ? WHERE user_id = ? ";
-                param_arr.push(nickname);
-                param_arr.push(userid);
-                // var sql = "UPDATE user_info SET head_img_url=?,nickname = ?,description=?,sex=?,city_id=?,birthday=? WHERE user_id=?";
-                mysql.query(child_sql, param_arr).then(function (result) {
-                    res.send({res_code: 1, msg: "修改成功"});
-                });
-                break;
-            default:
-                res.send(result);
+                res.send(result)
                 break;
         }
     });
@@ -418,7 +318,8 @@ user.getUserInfoFunc = function (user_id) {
             resolve(false);
             return;
         }
-        var sql = "SELECT nickname,realname,phone,head_img_url,city_id,birthday,description,sex,email,cret_description FROM user_info WHERE user_id=?";
+        var sql = "SELECT nickname,head_img,description FROM user_info " +
+            "WHERE user_id=?";
         mysql.query(sql, [user_id]).then(function (results) {
             if (results.length == 0) {
                 resolve(false);
@@ -428,5 +329,6 @@ user.getUserInfoFunc = function (user_id) {
         });
     });
 };
+
 
 module.exports = user;

@@ -13,6 +13,21 @@ var mysql = require('./mysql');
 
 var base = {};
 
+base.console = function (msg, type) {
+
+    if (!type) {
+        type = ""
+    } else {
+        type = "[" + type + "]"
+    }
+
+    console.log()
+    console.log('---- ' + moment().format('YYYY-MM-DD HH:mm:ss') + ' -----------')
+    console.log('#### [MSG]: ' + msg)
+    console.log('#### ' + type + '---------------------------------')
+    console.log()
+};
+
 //生成随机数
 base.getRandomCode = function (min, max) {
     var code = Math.floor(Math.random() * (max - min + 1) + min);
@@ -39,8 +54,8 @@ base.createToken = function (userid) {
 base.checkToken = function (token) {
     return new Promise(function (resolve, reject) {
         // 测试用的token
-        if (token == "illegal0001"){
-            resolve({res_code: 1, msg: {iss:1342}});
+        if (token == "illegal0001") {
+            resolve({res_code: 1, msg: {iss: 1342}});
             return;
         }
 
@@ -103,7 +118,7 @@ base.errors = {
     "has_user": {res_code: -7, msg: "用户已存在"},
     "token_null_not_login": {res_code: -8, msg: "token为空，无法获取数据，不需要登录"},
     "user_no_tags": {res_code: -9, msg: "用户没有tags标签"},
-    "table_id_err": {res_code: -10, msg: "table_id错误"},
+    "has_email": {res_code: -10, msg: "邮箱已注册"},
     "type_err": {res_code: -11, msg: "格式错误.只支持jpg,png.gif"},
     "param_type_err": {res_code: -12, msg: "参数格式错误"},
     "cannot": {res_code: -13, msg: "不能操作"},
@@ -111,8 +126,8 @@ base.errors = {
     "word_err": {res_code: -15, msg: "含有敏感词"},
     "sys_err": {res_code: -16, msg: "系统错误"},
     "has_curriculum": {res_code: -17, msg: "已购买该课程"},
-    "gold_err": {res_code: -18, msg: "金币数量错误"},
-    "amount_err": {res_code: -19, msg: "订单实际扣费价格错误"},
+    "nickname_cannot_null": {res_code: -18, msg: "昵称不能为空"},
+    "user_info_err": {res_code: -19, msg: "用户信息错误"},
     "need_buy": {res_code: -20, msg: "需要购买"},
     "count_0": {res_code: -21, msg: "数量错误,为0 或 >10,000"},
     "redeem_code_err": {res_code: -22, msg: "兑换码错误"},
@@ -127,8 +142,8 @@ base.errors = {
     "redeem_code_open_time_before": {res_code: -31, msg: "这个兑换码还没到可以使用的时间"},
     "norole": {res_code: -32, msg: "该用户没有操作权限"},
     "has_term": {res_code: -33, msg: "已拥有该学期"},
-    "has_project":{res_code:-34,msg:"已拥有该项目"},
-    "nickname_null":{res_code:-35,msg:"昵称不能为空"}
+    "has_project": {res_code: -34, msg: "已拥有该项目"},
+    "nickname_null": {res_code: -35, msg: "昵称不能为空"}
 };
 
 //过滤html标签
@@ -223,6 +238,63 @@ base.get_baidu_position_by_ip = function (ip) {
             }
             resolve(body);
         }).form({ip: ip});
+    });
+};
+
+base.check_id_card = function (id) {
+    return new Promise(function (resolve, reject) {
+        try {
+            var id_str = id.toString();
+            if (id_str.length != 18) {
+                resolve({
+                    res_code: -1,
+                    msg: "身份证长度错误"
+                });
+            }
+            var address_code = parseInt(id_str.substring(0, 6));
+            var year = parseInt(id_str.substring(6, 10));
+            var month = parseInt(id_str.substring(10, 12));
+            var day = parseInt(id_str.substring(12, 14));
+            var segment_code = parseInt(id_str.substring(14, 17));
+            var check_code = id_str[17].toLowerCase();
+
+            var table = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
+            var check_table = ['1', '0', 'X', '9', '8', '7', '6', '5', '4', '3', '2'];
+            var total = 0;
+            for (var i = 0; i < 17; i++) {
+                total += table[i] * parseInt(id_str[i]);
+            }
+            var div = total % 11;
+
+            if (check_table[div].toLowerCase() != check_code) {
+                resolve({
+                    res_code: -2,
+                    msg: "身份证不合法"
+                });
+                return;
+            } else {
+                mysql.query("SELECT address FROM id_address WHERE id = ? ", [address_code]).then(function (results) {
+                    var address = results.length == 0 ? 'none' : results[0].address;
+                    resolve({
+                        res_code: 1,
+                        msg: {
+                            address: address,
+                            year: year,
+                            month: month,
+                            day: day,
+                            sex: parseInt(id_str[16]) % 2 == 0 ? '女' : '男'
+                        }
+                    });
+                    return;
+                });
+            }
+        } catch (err) {
+            resolve({
+                res_code: -3,
+                msg: "身份证格式错误"
+            });
+            return;
+        }
     });
 };
 

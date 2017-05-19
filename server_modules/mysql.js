@@ -15,7 +15,7 @@ var pool = mysql.createPool({
     host: 'localhost',
     user: 'root',
     password: 'maxiaobin',
-    database: 'dskj_dscj',
+    database: 'family_storage',
     port: '3306',
     charset: 'utf8mb4'
 });

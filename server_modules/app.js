@@ -3,12 +3,19 @@
  */
 'use strict';
 
+var bodyParser = require('body-parser');
 var app = require('express')();
+var socket = require('./socket');
 
 // 各个模块
 var apiRouter = require('./app_router');
 
-// app.use(express.static('public'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({
+    extended: false
+}));
+
+socket.conn();
 
 // api
 app.use('/', apiRouter);
