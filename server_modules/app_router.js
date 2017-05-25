@@ -21,6 +21,10 @@ var user =require('./user');
 router.get('/hello', hello.hello);
 router.post('/connect', hello.hello);
 router.post('/user/check_id_card', user.check_id_card);
+router.post('/user/register', user.register);
+router.post('/user/login', user.login);
+router.post('/user/user_info', user.user_info);
+router.post('/user/set_info', user.set_info);
 
 //-------------------------------------------------
 

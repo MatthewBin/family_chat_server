@@ -12,16 +12,16 @@ var logs = require('./logs');
 var user = {};
 
 // 检查身份证合法性
-user.check_id_card = function (req,res) {
+user.check_id_card = function (req, res) {
     var id_code = req.body.id_code;
 
     base.check_id_card(id_code).then(function (result) {
-       res.send(result);
+        res.send(result);
     });
 };
 
 // 用户注册
-user.regist = function (req, res) {
+user.register = function (req, res) {
     var username = req.body.username;
     var pwd = req.body.pwd;
     var email = req.body.email;
@@ -46,7 +46,7 @@ user.regist = function (req, res) {
 
         var md5Pwd = base.md5Pwd(pwd);
         var sql = "INSERT INTO user (user_name,user_pwd,email,state) " +
-            "VALUES (?,?,?,?,?) ";
+            "VALUES (?,?,?,?) ";
         mysql.query(sql, [username, md5Pwd, email, 1]).then(function (result) {
             res.send({res_code: 1, msg: "注册成功"});
         });
@@ -230,21 +230,23 @@ user.reset_pwd = function (req, res) {
     });
 };
 
-// 修改昵称
+// 修改信息
 user.set_info = function (req, res) {
     var token = base.get_token(req);
     var nickname = req.body.nickname;
     var head_img = req.body.head_img;
     var description = req.body.description;
 
-    var sql = "UPDATE user SET ";
 
-    if(nickname)
-
-    if(!nickname || nickname == ""){
+    if (!nickname || nickname == "") {
         res.send(base.errors.nickname_cannot_null);
         return;
     }
+    if (!head_img)
+        head_img = {uri: 'data:image/jpeg;base64,' + '', isStatic: true};
+    head_img = JSON.stringify(head_img);
+    if (!description)
+        description = "";
 
     base.checkToken(token).then(function (result) {
         switch (result.res_code) {
@@ -256,9 +258,9 @@ user.set_info = function (req, res) {
                         res.send(base.errors.not_found_user);
                         return;
                     }
-                    var sql = "UPDATE user SET nickname = ? WHERE id = ? ";
-                    mysql.query(sql, [nickname, userid]).then(function (result) {
-                        res.send({res_code: 1, msg: "昵称修改成功"});
+                    var sql = "UPDATE user SET nickname = ?,head_img=?,description=? WHERE id = ? ";
+                    mysql.query(sql, [nickname, head_img, description, userid]).then(function (result) {
+                        res.send({res_code: 1, msg: "修改成功"});
                     });
                 });
                 break;
@@ -318,14 +320,16 @@ user.getUserInfoFunc = function (user_id) {
             resolve(false);
             return;
         }
-        var sql = "SELECT nickname,head_img,description FROM user_info " +
-            "WHERE user_id=?";
+        var sql = "SELECT nickname,head_img,description FROM user " +
+            "WHERE id=?";
         mysql.query(sql, [user_id]).then(function (results) {
             if (results.length == 0) {
                 resolve(false);
                 return;
             }
-            resolve(results[0]);
+            var data = results[0];
+            data.head_img = JSON.parse(data.head_img);
+            resolve(data);
         });
     });
 };

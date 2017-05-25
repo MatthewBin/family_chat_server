@@ -72,11 +72,11 @@ base.checkToken = function (token) {
                     resolve({res_code: -998, msg: "token已过期"});
                 }
 
-                var sql = "SELECT token_app,token_web FROM user WHERE id=?";
+                var sql = "SELECT token_client,token_web FROM user WHERE id=?";
                 //console.log(decoded.iss);
                 mysql.query(sql, [decoded.iss]).then(function (results) {
                     if (results.length > 0) {
-                        if (results[0].token_app == token || results[0].token_web == token) {
+                        if (results[0].token_client == token || results[0].token_web == token) {
                             resolve({res_code: 1, msg: decoded});
                         } else {
                             resolve({res_code: -995, msg: "token错误"});

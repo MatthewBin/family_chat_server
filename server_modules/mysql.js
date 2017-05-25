@@ -32,8 +32,8 @@ sql.query = function (sql, params) {
 
             connection.query(sql, params, function (err, result) {
                 if (err) {
-                    console.error(moment().format() + "sql.query:" + err + "----sql:" + sql);
-                    logs.logs("sql.query:" + err + "----sql:" + sql, "error");
+                    console.error(moment().format() + "\n #### sql.query:" + err + "\n----sql:" + sql + "\n----param:" + params);
+                    logs.logs("\n #### sql.query:" + err + "\n----sql:" + sql + "\n----param:" + params, "error");
                     reject(err);
                 }
 
