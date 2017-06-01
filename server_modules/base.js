@@ -117,7 +117,7 @@ base.errors = {
     "pwd_err": {res_code: -6, msg: "密码错误"},
     "has_user": {res_code: -7, msg: "用户已存在"},
     "token_null_not_login": {res_code: -8, msg: "token为空，无法获取数据，不需要登录"},
-    "user_no_tags": {res_code: -9, msg: "用户没有tags标签"},
+    "send_msg_err": {res_code: -9, msg: "发送消息错误"},
     "has_email": {res_code: -10, msg: "邮箱已注册"},
     "type_err": {res_code: -11, msg: "格式错误.只支持jpg,png.gif"},
     "param_type_err": {res_code: -12, msg: "参数格式错误"},

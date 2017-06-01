@@ -78,7 +78,12 @@ user.login = function (req, res) {
         if (client == 1) {
             var sql = "UPDATE user SET token_client = ? WHERE id = ? ";
             mysql.query(sql, [token, userid]).then(function (result) {
-                res.send({res_code: 1, msg: token});
+                res.send({
+                    res_code: 1, msg: {
+                        token: token,
+                        user_id: userid
+                    }
+                });
             });
         } else {
             var sql = "UPDATE user SET token_web = ? WHERE id = ? ";
@@ -90,7 +95,6 @@ user.login = function (req, res) {
                 res.send({res_code: 1, msg: "登陆成功"});
             });
         }
-
     });
 };
 
@@ -265,7 +269,7 @@ user.set_info = function (req, res) {
                 });
                 break;
             default:
-                result.send(result)
+                res.send(result)
                 break;
         }
     });
