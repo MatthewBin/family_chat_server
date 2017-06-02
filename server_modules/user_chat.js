@@ -90,7 +90,7 @@ user_chat.send_msg = function (req, res) {
 // 获取最近聊天
 user_chat.get_recently_list = function (req, res) {
     var token = base.get_token(req);
-console.log('--------------')
+
     base.checkToken(token).then(function (result) {
         switch (result.res_code) {
             case 1:
@@ -107,11 +107,60 @@ console.log('--------------')
                             data.splice(i - 1, 1);
                         }
                     }
-                    res.send({res_code: 1, msg: data});
+
+                    mysql.query("SELECT id,nickname,head_img FROM user", []).then(function (users) {
+                        for (var d of data) {
+                            var fid = d.from_uid == userid ? d.to_uid : d.from_uid;
+                            for (var u of users) {
+                                if (fid == u.id) {
+                                    d.nickname = u.nickname;
+                                    d.head_img = JSON.parse(u.head_img);
+                                    break;
+                                }
+                            }
+                        }
+                        res.send({res_code: 1, msg: data});
+                    });
                 });
                 break;
             default:
                 res.send(result)
+                break;
+        }
+    });
+};
+
+// 获取动态
+user_chat.get_active_list = function (req, res) {
+    var token = base.get_token(req);
+    var page_index = req.body.page_index;
+    var page_size = req.body.page_size;
+
+    if (page_index == undefined || !page_size) {
+        res.send(base.errors.param_null);
+        return;
+    }
+
+    var limit = page_index * page_size;
+
+    base.checkToken(token).then(function (result) {
+        switch (result.res_code) {
+            case 1:
+                var userid = result.msg.iss;
+                var sql = "SELECT a.*,b.nickname,b.head_img FROM user_active a " +
+                    "INNER JOIN user b ON a.uid = b.id " +
+                    "ORDER BY a.create_time DESC " +
+                    "LIMIT ?,? ";
+                // var sql = "SELECT a.*,b.nickname,b.head_img FROM user_active a " +
+                //     "INNER JOIN user b ON a.uid = b.id " +
+                //     "ORDER BY a.create_time DESC " +
+                //     "LIMIT ?,? ";
+                mysql.query(sql, [limit, page_size]).then(function (results) {
+                    res.send({res_code: 1, msg: results});
+                });
+                break;
+            default:
+                res.send(result);
                 break;
         }
     });

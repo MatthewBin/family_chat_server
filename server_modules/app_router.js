@@ -32,6 +32,7 @@ router.post('/user/set_info', user.set_info);
 router.post('/user_chat/get_chat_list', user_chat.get_chat_list);
 router.post('/user_chat/send_msg', user_chat.send_msg);
 router.post('/user_chat/get_recently_list', user_chat.get_recently_list);
+router.post('/user_chat/get_active_list', user_chat.get_active_list);
 
 //-------------------------------------------------
 
