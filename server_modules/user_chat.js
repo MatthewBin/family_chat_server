@@ -140,7 +140,8 @@ user_chat.get_active_list = function (req, res) {
         res.send(base.errors.param_null);
         return;
     }
-
+    console.log("::"+page_index)
+    console.log(page_size)
     var limit = page_index * page_size;
 
     base.checkToken(token).then(function (result) {
@@ -151,12 +152,47 @@ user_chat.get_active_list = function (req, res) {
                     "INNER JOIN user b ON a.uid = b.id " +
                     "ORDER BY a.create_time DESC " +
                     "LIMIT ?,? ";
-                // var sql = "SELECT a.*,b.nickname,b.head_img FROM user_active a " +
-                //     "INNER JOIN user b ON a.uid = b.id " +
-                //     "ORDER BY a.create_time DESC " +
-                //     "LIMIT ?,? ";
                 mysql.query(sql, [limit, page_size]).then(function (results) {
+                    for(var r of results){
+                        r.head_img = JSON.parse(r.head_img);
+                    }
                     res.send({res_code: 1, msg: results});
+                });
+                break;
+            default:
+                res.send(result);
+                break;
+        }
+    });
+};
+
+// 发送动态
+user_chat.send_active = function (req, res) {
+    var token = base.get_token(req);
+    var content = req.body.content;
+
+    if (content == undefined || content == null) {
+        content = "";
+    }
+
+    base.checkToken(token).then(function (result) {
+        switch (result.res_code) {
+            case 1:
+                var userid = result.msg.iss;
+                var sql = "INSERT INTO user_active (uid,content) VALUES (?,?) ";
+                mysql.query(sql, [userid, content]).then(function (result) {
+                    if (result.affectedRows > 0) {
+                        var sql = "SELECT a.*,b.nickname,b.head_img FROM user_active a " +
+                            "INNER JOIN user b ON a.uid= b.id " +
+                            "WHERE a.id = ?";
+
+                        mysql.query(sql, result.insertId).then(function (results) {
+                            results[0].head_img = JSON.parse(results[0].head_img);
+                            res.send({res_code: 1, msg: results[0]});
+                        });
+                    } else {
+                        res.send(base.errors.send_msg_err);
+                    }
                 });
                 break;
             default:
