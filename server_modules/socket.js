@@ -14,19 +14,19 @@ var socket = {};
 
 socket.conn = function () {
     io.on('connection', function (socket) {
-        base.console("client: " + socket.id +" init.", "step 1");
+        base.console("client: " + socket.id + " init.", "step 1");
 
         socket.on('disconnect', function (param) {
             var msg = 'user -' + socket.id + '- disconnected: ' + param;
             base.console(msg, 'disconnet');
-            if(global.clients){
-                for (var i = global.clients.length - 1; i >= 0; i--){
+            if (global.clients) {
+                for (var i = global.clients.length - 1; i >= 0; i--) {
                     if (global.clients[i].id == socket.id) {
                         io.emit('notify', global.clients[i].nickname + "已下线");
                         global.clients.splice(i, 1);
                     }
                 }
-            }else {
+            } else {
                 console.log(global.clients)
             }
         });
@@ -50,9 +50,9 @@ socket.conn = function () {
     });
 };
 
-socket.send = function (to_user_id, msg) {
+socket.send = function (from_user_id,to_user_id, msg) {
     //发送消息
-    io.emit(to_user_id, msg);
+    io.emit(to_user_id, {from_user_id,to_user_id, msg});
 };
 
 module.exports = socket;

@@ -15,8 +15,6 @@ var user =require('./user');
 var user_chat = require('./user_chat');
 //-------------------------------------------------
 
-
-
 // 一个 API 路由下的 hello 接口，访问 /api/hello
 
 router.get('/hello', hello.hello);
@@ -34,6 +32,8 @@ router.post('/user_chat/send_msg', user_chat.send_msg);
 router.post('/user_chat/get_recently_list', user_chat.get_recently_list);
 router.post('/user_chat/get_active_list', user_chat.get_active_list);
 router.post('/user_chat/send_active', user_chat.send_active);
+router.post('/user_chat/get_last_msg', user_chat.get_last_msg);
+router.post('/user_chat/set_is_read', user_chat.set_is_read);
 
 //-------------------------------------------------
 

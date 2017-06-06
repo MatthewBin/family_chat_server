@@ -9,6 +9,7 @@ var moment = require('moment');
 var mysql = require('./mysql');
 var base = require('./base');
 var logs = require('./logs');
+var socket = require('./socket');
 
 var user_chat = {};
 
@@ -73,11 +74,42 @@ user_chat.send_msg = function (req, res) {
                 mysql.query(sql, [userid, to_uid, content]).then(function (result) {
                     if (result.affectedRows > 0) {
                         mysql.query("SELECT * FROM user_chat WHERE id = ?", result.insertId).then(function (results) {
+                            socket.send(userid, to_uid, content);
                             res.send({res_code: 1, msg: results[0]});
                         });
                     } else {
                         res.send(base.errors.send_msg_err);
                     }
+                });
+                break;
+            default:
+                res.send(result);
+                break;
+        }
+    });
+};
+
+// 获取最新消息
+user_chat.get_last_msg = function (req, res) {
+    var token = base.get_token(req);
+    var from_uid = req.body.from_uid;
+
+    if (!from_uid) {
+        res.send(base.errors.user_info_err);
+        return;
+    }
+
+    base.checkToken(token).then(function (result) {
+        switch (result.res_code) {
+            case 1:
+                var userid = result.msg.iss;
+                var sql = "SELECT * FROM user_chat WHERE from_uid = ? AND to_uid=? ORDER BY create_time DESC limit 1 ";
+                mysql.query(sql, [from_uid, userid]).then(function (results) {
+                    if (results.length == 0) {
+                        res.send(base.errors.no_data);
+                        return;
+                    }
+                    res.send({res_code: 1, msg: results[0]});
                 });
                 break;
             default:
@@ -140,8 +172,7 @@ user_chat.get_active_list = function (req, res) {
         res.send(base.errors.param_null);
         return;
     }
-    console.log("::"+page_index)
-    console.log(page_size)
+
     var limit = page_index * page_size;
 
     base.checkToken(token).then(function (result) {
@@ -153,7 +184,7 @@ user_chat.get_active_list = function (req, res) {
                     "ORDER BY a.create_time DESC " +
                     "LIMIT ?,? ";
                 mysql.query(sql, [limit, page_size]).then(function (results) {
-                    for(var r of results){
+                    for (var r of results) {
                         r.head_img = JSON.parse(r.head_img);
                     }
                     res.send({res_code: 1, msg: results});
@@ -202,10 +233,35 @@ user_chat.send_active = function (req, res) {
     });
 };
 
+// 设置已读
+user_chat.set_is_read = function (req, res) {
+    var token = base.get_token(req);
+    var from_uid = req.body.from_uid;
+
+    if (!from_uid) {
+        res.send(base.errors.user_info_err);
+        return;
+    }
+
+    base.checkToken(token).then(function (result) {
+        switch (result.res_code) {
+            case 1:
+                var userid = result.msg.iss;
+                user_chat.setMsgIsReadFunc(from_uid, userid);
+                res.send({res_code: 1, msg: 'ok'});
+                break;
+            default:
+                res.send(result);
+                break;
+        }
+    });
+};
+
 
 // ---- 方法 ----
 user_chat.setMsgIsReadFunc = function (from_uid, to_uid) {
     return new Promise(function (resolve, reject) {
+        console.log(from_uid)
         var sql = "UPDATE user_chat SET is_read = 1 WHERE from_uid=? AND to_uid = ? AND is_read<>1";
         mysql.query(sql, [from_uid, to_uid]).then(function (result) {
             resolve(true);

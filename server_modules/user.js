@@ -137,9 +137,9 @@ user.register = function (req, res) {
         }
 
         var md5Pwd = base.md5Pwd(pwd);
-        var sql = "INSERT INTO user (user_name,user_pwd,head_img,nickname,email,state) " +
-            "VALUES (?,?,?,?,?,?) ";
-        mysql.query(sql, [username, md5Pwd,head_img,username, email, 1]).then(function (result) {
+        var sql = "INSERT INTO user (user_name,user_pwd,head_img,nickname,description,email,state) " +
+            "VALUES (?,?,?,?,?,?,?) ";
+        mysql.query(sql, [username, md5Pwd,JSON.stringify(head_img),username,'这家伙很懒，还未设置..', email, 1]).then(function (result) {
             res.send({res_code: 1, msg: "注册成功"});
         });
     });
