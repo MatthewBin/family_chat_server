@@ -520,5 +520,4 @@ user.getUserInfoFunc = function (user_id) {
     });
 };
 
-
 module.exports = user;

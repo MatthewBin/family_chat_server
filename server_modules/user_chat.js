@@ -134,14 +134,29 @@ user_chat.get_recently_list = function (req, res) {
                     "ON a.id = b.id ";
                 mysql.query(sql, [userid, userid]).then(function (results) {
                     var data = results;
-                    for (var i = data.length - 1; i > 0; i--) {
-                        if (data[i].from_uid == data[i - 1].to_uid && data[i].to_uid == data[i - 1].from_uid) {
-                            data.splice(i - 1, 1);
+
+                    // for (var i = data.length - 1; i > 0; i--) {
+                    //     if (data[i].from_uid == data[i - 1].to_uid && data[i].to_uid == data[i - 1].from_uid) {
+                    //         console.log("done")
+                    //         data.splice(i - 1, 1);
+                    //     }
+                    // }
+                    var last = [];
+                    for (var i = data.length - 1; i >= 0; i--) {
+                        var has_item = false;
+                        for (var item of last) {
+                            if (data[i].from_uid == item.to_uid && data[i].to_uid == item.from_uid) {
+                                has_item = true;
+                                break;
+                            }
+                        }
+                        if(!has_item){
+                            last.push(data[i])
                         }
                     }
 
                     mysql.query("SELECT id,nickname,head_img FROM user", []).then(function (users) {
-                        for (var d of data) {
+                        for (var d of last) {
                             var fid = d.from_uid == userid ? d.to_uid : d.from_uid;
                             for (var u of users) {
                                 if (fid == u.id) {
@@ -151,7 +166,7 @@ user_chat.get_recently_list = function (req, res) {
                                 }
                             }
                         }
-                        res.send({res_code: 1, msg: data});
+                        res.send({res_code: 1, msg: last});
                     });
                 });
                 break;
@@ -261,7 +276,6 @@ user_chat.set_is_read = function (req, res) {
 // ---- 方法 ----
 user_chat.setMsgIsReadFunc = function (from_uid, to_uid) {
     return new Promise(function (resolve, reject) {
-        console.log(from_uid)
         var sql = "UPDATE user_chat SET is_read = 1 WHERE from_uid=? AND to_uid = ? AND is_read<>1";
         mysql.query(sql, [from_uid, to_uid]).then(function (result) {
             resolve(true);
